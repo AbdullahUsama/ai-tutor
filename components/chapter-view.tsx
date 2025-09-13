@@ -24,9 +24,29 @@ export function ChapterView({ subject, chapterId }: ChapterViewProps) {
     mathematics: Calculator,
     physics: Atom,
     english: FileText,
+  } as const
+
+  type ChapterData = {
+    title: string
+    description: string
+    progress: number
+    topics: {
+      id: string
+      title: string
+      completed: boolean
+      subtopics: {
+        id: string
+        title: string
+        completed: boolean
+      }[]
+    }[]
   }
 
-  const chapterData = {
+  type SubjectData = {
+    [key: string]: ChapterData
+  }
+
+  const chapterData: Record<string, SubjectData> = {
     mathematics: {
       "1": {
         title: "Calculus & Derivatives",
@@ -112,7 +132,7 @@ export function ChapterView({ subject, chapterId }: ChapterViewProps) {
     },
   }
 
-  const currentChapter = chapterData[subject as keyof typeof chapterData]?.[chapterId]
+  const currentChapter = chapterData[subject]?.[chapterId]
   const Icon = subjectIcons[subject as keyof typeof subjectIcons]
 
   if (!currentChapter || !Icon) {
