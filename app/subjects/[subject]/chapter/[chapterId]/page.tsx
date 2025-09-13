@@ -10,9 +10,11 @@ interface ChapterPageProps {
 
 export default function ChapterPage({ params }: ChapterPageProps) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       <Header />
-      <ChapterView subject={params.subject} chapterId={params.chapterId} />
+      <div className="flex-1 min-h-0">
+        <ChapterView subject={params.subject} chapterId={params.chapterId} />
+      </div>
     </div>
   )
 }

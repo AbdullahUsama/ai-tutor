@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { Bot, User, Send, HelpCircle, Loader2 } from "lucide-react"
+import { Bot, User, Send, HelpCircle, Loader2, ChevronDown } from "lucide-react"
 import { getChatResponse, getChatResponseStream } from "@/lib/gemini"
 import { MarkdownRenderer } from "./markdown-renderer"
 
@@ -34,15 +34,76 @@ export function AIChatbot({ subject, chapter, topic }: AIChatbotProps) {
   ])
   const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isAtBottom, setIsAtBottom] = useState(true)
+  const [showScrollButton, setShowScrollButton] = useState(false)
+  
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout>()
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+  // Smart scroll to bottom function
+  const scrollToBottom = useCallback((force = false) => {
+    if (force || isAtBottom) {
+      messagesEndRef.current?.scrollIntoView({ 
+        behavior: "smooth",
+        block: "end"
+      })
+    }
+  }, [isAtBottom])
 
+  // Check if user is at bottom of scroll area
+  const checkScrollPosition = useCallback(() => {
+    const scrollArea = scrollAreaRef.current
+    if (!scrollArea) return
+
+    const scrollContainer = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
+    if (!scrollContainer) return
+
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainer
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 50 // 50px threshold
+    
+    setIsAtBottom(isNearBottom)
+    setShowScrollButton(!isNearBottom && messages.length > 1)
+  }, [messages.length])
+
+  // Handle scroll events with debouncing
+  const handleScroll = useCallback(() => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
+    }
+    
+    scrollTimeoutRef.current = setTimeout(() => {
+      checkScrollPosition()
+    }, 100)
+  }, [checkScrollPosition])
+
+  // Effect to handle auto-scrolling
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    // Small delay to ensure DOM is updated
+    const timer = setTimeout(() => {
+      scrollToBottom()
+    }, 50)
+
+    return () => clearTimeout(timer)
+  }, [messages, scrollToBottom])
+
+  // Effect to set up scroll listener
+  useEffect(() => {
+    const scrollArea = scrollAreaRef.current
+    if (!scrollArea) return
+
+    const scrollContainer = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
+    if (!scrollContainer) return
+
+    scrollContainer.addEventListener('scroll', handleScroll)
+    
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll)
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
+  }, [handleScroll])
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return
@@ -58,6 +119,9 @@ export function AIChatbot({ subject, chapter, topic }: AIChatbotProps) {
     const currentInput = inputValue
     setInputValue("")
     setIsLoading(true)
+
+    // Force scroll to bottom when user sends message
+    setIsAtBottom(true)
 
     // Create an empty AI message that we'll update with streaming content
     const aiMessageId = (Date.now() + 1).toString()
@@ -115,14 +179,19 @@ export function AIChatbot({ subject, chapter, topic }: AIChatbotProps) {
     }
   }
 
+  const handleScrollToBottom = () => {
+    setIsAtBottom(true)
+    scrollToBottom(true)
+  }
+
   const handleQuickQuestion = (question: string) => {
     setInputValue(question)
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col max-h-full overflow-hidden relative">
       {/* Chat Header */}
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 flex-shrink-0">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Bot className="h-5 w-5 text-primary" />
           AI Tutor
@@ -138,8 +207,8 @@ export function AIChatbot({ subject, chapter, topic }: AIChatbotProps) {
       </CardHeader>
 
       {/* Messages */}
-      <CardContent className="flex-1 flex flex-col gap-4 p-4 min-h-0">
-        <ScrollArea className="flex-1 max-h-[400px] pr-4">
+      <CardContent className="flex-1 flex flex-col gap-4 p-4 min-h-0 overflow-hidden relative">
+        <ScrollArea ref={scrollAreaRef} className="flex-1 h-0 pr-4">
           <div className="space-y-4 pb-4">
             {messages.map((message) => (
               <div
@@ -183,27 +252,20 @@ export function AIChatbot({ subject, chapter, topic }: AIChatbotProps) {
           </div>
         </ScrollArea>
 
-        {/* Quick Questions */}
-        {/* <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Quick questions:</p>
-          <div className="grid grid-cols-1 gap-1"> */}
-            {/* {quickQuestions.map((question, index) => (
-              <Button
-                key={index}
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickQuestion(question)}
-                className="text-xs h-8 justify-start"
-              >
-                <HelpCircle className="h-3 w-3 mr-2" />
-                {question}
-              </Button>
-            ))} */}
-          {/* </div>
-        </div> */}
+        {/* Scroll to bottom button */}
+        {showScrollButton && (
+          <Button
+            onClick={handleScrollToBottom}
+            size="sm"
+            variant="secondary"
+            className="absolute bottom-16 right-6 rounded-full w-10 h-10 p-0 shadow-lg border z-10"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        )}
 
         {/* Input */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}

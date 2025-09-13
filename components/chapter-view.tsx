@@ -120,7 +120,7 @@ export function ChapterView({ subject, chapterId }: ChapterViewProps) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-80px)]">
+    <div className="flex h-full overflow-hidden">
       {/* Left Sidebar - Topics Navigation */}
       <div className="w-80 border-r border-border bg-card">
         <TopicsSidebar
@@ -170,9 +170,9 @@ export function ChapterView({ subject, chapterId }: ChapterViewProps) {
       </div>
 
       {/* Right Sidebar - AI Chatbot */}
-      <div className={`transition-all duration-300 border-l border-border bg-card ${isChatOpen ? "w-96" : "w-16"}`}>
+      <div className={`transition-all duration-300 border-l border-border bg-card ${isChatOpen ? "w-96" : "w-16"} flex flex-col h-full overflow-hidden`}>
         <div className="h-full flex flex-col">
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-border flex-shrink-0">
             <Button
               variant="ghost"
               size="sm"
@@ -184,7 +184,7 @@ export function ChapterView({ subject, chapterId }: ChapterViewProps) {
             </Button>
           </div>
           {isChatOpen && (
-            <div className="flex-1">
+            <div className="flex-1 min-h-0 overflow-hidden">
               <AIChatbot subject={subject} chapter={currentChapter.title} topic={selectedTopic} />
             </div>
           )}
